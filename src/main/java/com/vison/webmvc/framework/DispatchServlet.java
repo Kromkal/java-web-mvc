@@ -1,5 +1,6 @@
 package com.vison.webmvc.framework;
 
+import com.vison.webmvc.framework.exception.NullRouteException;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -29,58 +30,61 @@ public class DispatchServlet extends HttpServlet {
 
     @Override
     public void init() throws ServletException {
-
+        ViewEngine.load(this.getServletContext());
     }
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
         resp.setContentType("text/html");
         resp.setCharacterEncoding("UTF-8");
         String path = req.getRequestURI().substring(req.getContextPath().length());
-        Object res = dispatch(path, req, resp);
+        Object res;
+        try {
+            res = dispatch(path, req, resp);
+        } catch (NullRouteException ex) {
+            res = "404 Not Found";
+        }
         String responseBody = this.handInvokeRes(res);
         resp.getWriter().write(responseBody);
         resp.getWriter().flush();
     }
 
-    private Object dispatch(String path, HttpServletRequest request, HttpServletResponse response) {
+    private Object dispatch(String path, HttpServletRequest request, HttpServletResponse response)
+            throws NullRouteException {
         Method method = this.getMaps(path);
-        log.info(method);
         Object res = null;
-        if (method != null);
-        {
-            Parameter[] parameters = method.getParameters();
-            Object[] arguments = new Object[parameters.length];
-            for (int i = 0; i < parameters.length; i++) {
-                Parameter parameter = parameters[i];
-                log.info(parameter.getType());
-                Class<?> parameterClass = parameter.getType();
-                String parameterName = parameter.getName();
-                if (parameterClass == HttpServletRequest.class) {
-                    arguments[i] = request;
-                } else if (parameterClass == HttpServletResponse.class) {
-                    arguments[i] = response;
-                } else if (parameterClass == HttpSession.class) {
-                    arguments[i] = request.getSession();
-                } else if (parameterClass == int.class) {
-                    arguments[i] = Integer.valueOf(getOrDefault(request, parameterName, "0"));
-                } else if (parameterClass == long.class) {
-                    arguments[i] = Long.valueOf(getOrDefault(request, parameterName, "0"));
-                } else if (parameterClass == boolean.class) {
-                    arguments[i] = Boolean.valueOf(getOrDefault(request, parameterName, "false"));
-                } else if (parameterClass == String.class) {
-                    arguments[i] = getOrDefault(request, parameterName, "");
-                } else {
-                    throw new RuntimeException("Missing handler for type: " + parameterClass);
-                }
+        Parameter[] parameters = method.getParameters();
+        Object[] arguments = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter parameter = parameters[i];
+            log.info(parameter.getType());
+            Class<?> parameterClass = parameter.getType();
+            String parameterName = parameter.getName();
+            if (parameterClass == HttpServletRequest.class) {
+                arguments[i] = request;
+            } else if (parameterClass == HttpServletResponse.class) {
+                arguments[i] = response;
+            } else if (parameterClass == HttpSession.class) {
+                arguments[i] = request.getSession();
+            } else if (parameterClass == int.class) {
+                arguments[i] = Integer.valueOf(getOrDefault(request, parameterName, "0"));
+            } else if (parameterClass == long.class) {
+                arguments[i] = Long.valueOf(getOrDefault(request, parameterName, "0"));
+            } else if (parameterClass == boolean.class) {
+                arguments[i] = Boolean.valueOf(getOrDefault(request, parameterName, "false"));
+            } else if (parameterClass == String.class) {
+                arguments[i] = getOrDefault(request, parameterName, "");
+            } else {
+                throw new RuntimeException("Missing handler for type: " + parameterClass);
             }
-            Object obj;
-            try {
-                obj = method.getDeclaringClass().getDeclaredConstructor().newInstance();
-                res = method.invoke(obj, arguments);
-            } catch (Exception e) {
-                log.error("方法invoke失败", e);
-            }
+        }
+        Object obj;
+        try {
+            obj = method.getDeclaringClass().getDeclaredConstructor().newInstance();
+            res = method.invoke(obj, arguments);
+        } catch (Exception e) {
+            log.error("方法invoke失败", e);
         }
         return res;
     }
@@ -97,7 +101,8 @@ public class DispatchServlet extends HttpServlet {
         return "";
     }
 
-    private Method getMaps(String path) {
+    private Method getMaps(String path) throws NullRouteException {
+
         String packageName = "com.vison.webmvc.controller";
         ConfigurationBuilder config = new ConfigurationBuilder();
         config.filterInputsBy(new FilterBuilder().includePackage(packageName));
@@ -112,6 +117,6 @@ public class DispatchServlet extends HttpServlet {
                 return method;
             }
         }
-        return null;
+        throw new NullRouteException();
     }
 }
