@@ -1,5 +1,7 @@
 package com.vison.webmvc.framework;
 
+import com.google.gson.Gson;
+import com.vison.webmvc.config.Log;
 import com.vison.webmvc.framework.exception.NullRouteException;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -16,8 +18,6 @@ import org.reflections.scanners.MethodAnnotationsScanner;
 import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 
 /**
  *
@@ -25,8 +25,6 @@ import org.apache.logging.log4j.LogManager;
  */
 @WebServlet(name = "DispatchServlet", urlPatterns = {"/"})
 public class DispatchServlet extends HttpServlet {
-
-    private static final Logger log = LogManager.getLogger(DispatchServlet.class.getName());
 
     @Override
     public void init() throws ServletException {
@@ -46,6 +44,7 @@ public class DispatchServlet extends HttpServlet {
             res = "404 Not Found";
         }
         String responseBody = this.handInvokeRes(res);
+        Log.info("返回信息", responseBody);
         resp.getWriter().write(responseBody);
         resp.getWriter().flush();
     }
@@ -58,7 +57,7 @@ public class DispatchServlet extends HttpServlet {
         Object[] arguments = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
-            log.info(parameter.getType());
+            Log.info("参数类型", parameter.getType());
             Class<?> parameterClass = parameter.getType();
             String parameterName = parameter.getName();
             if (parameterClass == HttpServletRequest.class) {
@@ -84,7 +83,7 @@ public class DispatchServlet extends HttpServlet {
             obj = method.getDeclaringClass().getDeclaredConstructor().newInstance();
             res = method.invoke(obj, arguments);
         } catch (Exception e) {
-            log.error("方法invoke失败", e);
+            Log.error("方法invoke失败", e);
         }
         return res;
     }
@@ -94,11 +93,19 @@ public class DispatchServlet extends HttpServlet {
         return s == null ? defaultValue : s;
     }
 
+    /**
+     * 处理actionx
+     *
+     * @param obj
+     * @return
+     */
     private String handInvokeRes(Object obj) {
         if (obj instanceof String) {
             return (String) obj;
         }
-        return "";
+        Gson gson = new Gson();
+        String jsonRes = gson.toJson(obj);
+        return jsonRes;
     }
 
     private Method getMaps(String path) throws NullRouteException {
