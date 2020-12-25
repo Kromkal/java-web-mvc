@@ -10,7 +10,7 @@ import java.util.HashMap;
 
 /**
  *
- * @author vison.cao <vison.cao@huolala.cn>
+ * @author vison.cao <visonforcoding@gmail.com>
  */
 public class Response {
 
