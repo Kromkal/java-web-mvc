@@ -29,12 +29,11 @@ public class UserController {
     }
 
     @GetMapping(path = "/user")
-    public Response user() {
+    public Response user(HttpServletRequest request, int id) {
         User user = null;
         SqlSession session = MybatisLoader.getSqlSessionFactory().openSession();
         UserMapper mapper = session.getMapper(UserMapper.class);
-        user = mapper.selectUser(1);
-
+        user = mapper.selectUser(id);
         return new Response(0, "获取成功", user);
     }
 
@@ -42,14 +41,14 @@ public class UserController {
     public Response add(User user) {
         Log.info("request user", user);
         try {
-//            EntityManagerFactory emf = Persistence.createEntityManagerFactory("itdoc");
-//            Session session = HibernateLoader.sessionFactory.openSession();
-//            EntityManager entityManager = emf.createEntityManager();
-//            session.save(user);
+            SqlSession session = MybatisLoader.getSqlSessionFactory().openSession();
+            UserMapper mapper = session.getMapper(UserMapper.class);
+            int id = mapper.insertUser(user);
+            session.commit();
+            Log.debug("返回", id);
         } catch (Exception e) {
             Log.error("保存失败", e);
         }
-
-        return new Response(0, "获取成功", user);
+        return new Response(0, "保存", user);
     }
 }
