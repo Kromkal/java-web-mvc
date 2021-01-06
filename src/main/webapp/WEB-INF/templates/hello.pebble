@@ -1,0 +1,41 @@
+<html>
+    <head>
+        <!-- ZUI 标准版压缩后的 CSS 文件 -->
+        <link rel="stylesheet" href="/static/css/zui.min.css">
+
+        <!-- ZUI Javascript 依赖 jQuery -->
+        <script src="/static/js/jquery.min.js"></script>
+        <!-- ZUI 标准版压缩后的 JavaScript 文件 -->
+        <script src="/static/js/zui.min.js"></script>
+    </head>
+    <body>
+        <article class="article">
+            <!-- 文章头部 -->
+            <header>
+                <h1> hello,{{ vison  }}
+                </h1>
+                <!-- 文章属性列表 -->
+                <dl class="dl-inline">
+                    <dt>属性</dt>
+                    <dd>值</dd>
+                    ...
+                </dl>
+                <div class="abstract">
+                    <p>摘要信息</p>
+                </div>
+            </header>
+            <!-- 文章正文部分 -->
+            <section class="content">
+                ...
+            </section>
+            <!-- 文章底部 -->
+            <footer>
+                <ul class="pager pager-justify">
+                    <li class="previous"><a href="#"><i class="icon-arrow-left"></i> 上一篇</a></li>
+                    <li><a href="#"><i class="icon-list-ul"></i> 目录</a></li>
+                    <li class="next disabled"><a href="#">没有下一篇 <i class="icon-arrow-right"></i></a></li>
+                </ul>
+            </footer>
+        </article>
+    </body>
+</html>
