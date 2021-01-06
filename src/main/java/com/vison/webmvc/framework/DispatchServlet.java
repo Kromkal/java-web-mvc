@@ -1,12 +1,18 @@
 package com.vison.webmvc.framework;
 
 import com.google.gson.Gson;
+import com.vison.webmvc.config.App;
 import com.vison.webmvc.config.Log;
 import com.vison.webmvc.framework.exception.NullRouteException;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -26,34 +32,66 @@ import org.reflections.util.FilterBuilder;
 @WebServlet(name = "DispatchServlet", urlPatterns = {"/"})
 public class DispatchServlet extends HttpServlet {
 
+    private Reflections f;
+
     @Override
     public void init() throws ServletException {
         ViewEngine.load(this.getServletContext());
+        f = App.f;
+
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
+        try {
+            process(req, resp, RequestMethod.GET);
+        } catch (NullRouteException ex) {
+            Logger.getLogger(DispatchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        try {
+            process(req, resp, RequestMethod.POST);
+        } catch (NullRouteException ex) {
+            Logger.getLogger(DispatchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    private void process(HttpServletRequest req, HttpServletResponse resp, RequestMethod requestMethod)
+            throws NullRouteException, IOException {
         resp.setContentType("text/html");
         resp.setCharacterEncoding("UTF-8");
         String path = req.getRequestURI().substring(req.getContextPath().length());
-        Object res;
+        Object res = null;
         try {
-            res = dispatch(path, req, resp);
+            Method invokeMethod = this.getMaps(path, requestMethod);
+            switch (requestMethod) {
+                case GET:
+                    res = getDispatch(req, resp, invokeMethod);
+                    break;
+                case POST:
+                    res = postDispatch(req, resp, invokeMethod);
+                    break;
+            }
         } catch (NullRouteException ex) {
             res = "404 Not Found";
+        } catch (Exception e) {
+            Log.error("捕获错误", e);
         }
         String responseBody = this.handInvokeRes(res);
-        Log.info("返回信息", responseBody);
         resp.getWriter().write(responseBody);
         resp.getWriter().flush();
     }
 
-    private Object dispatch(String path, HttpServletRequest request, HttpServletResponse response)
-            throws NullRouteException {
-        Method method = this.getMaps(path);
+    private Object getDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod) {
+
         Object res = null;
-        Parameter[] parameters = method.getParameters();
+        Parameter[] parameters = invokeMethod.getParameters();
         Object[] arguments = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
@@ -80,12 +118,48 @@ public class DispatchServlet extends HttpServlet {
         }
         Object obj;
         try {
-            obj = method.getDeclaringClass().getDeclaredConstructor().newInstance();
-            res = method.invoke(obj, arguments);
+            obj = invokeMethod.getDeclaringClass().getDeclaredConstructor().newInstance();
+            res = invokeMethod.invoke(obj, arguments);
+        } catch (Exception e) {
+            InvocationTargetException targetEx = (InvocationTargetException) e;
+            Throwable trowEx = targetEx.getTargetException();
+            Log.error("方法invoke失败", trowEx);
+        }
+        return res;
+    }
+
+    private Object postDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod)
+            throws IOException {
+        Object res = null;
+        Parameter[] parameters = invokeMethod.getParameters();
+        Object[] arguments = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter parameter = parameters[i];
+            Log.info("参数类型", parameter.getType());
+            Class<?> parameterClass = parameter.getType();
+            if (parameterClass == HttpServletRequest.class) {
+                arguments[i] = request;
+            } else if (parameterClass == HttpServletResponse.class) {
+                arguments[i] = response;
+            } else if (parameterClass == HttpSession.class) {
+                arguments[i] = request.getSession();
+            } else {
+                // 读取JSON并解析为JavaBean:
+                request.setCharacterEncoding("UTF-8");
+                BufferedReader reader = request.getReader();
+                Gson gson = new Gson();
+                arguments[i] = gson.fromJson(reader, parameterClass);
+            }
+        }
+        Object obj;
+        try {
+            obj = invokeMethod.getDeclaringClass().getDeclaredConstructor().newInstance();
+            res = invokeMethod.invoke(obj, arguments);
         } catch (Exception e) {
             Log.error("方法invoke失败", e);
         }
         return res;
+
     }
 
     private String getOrDefault(HttpServletRequest request, String name, String defaultValue) {
@@ -108,22 +182,27 @@ public class DispatchServlet extends HttpServlet {
         return jsonRes;
     }
 
-    private Method getMaps(String path) throws NullRouteException {
+    private Method getMaps(String path, RequestMethod requestMethod) throws NullRouteException {
 
-        String packageName = "com.vison.webmvc.controller";
-        ConfigurationBuilder config = new ConfigurationBuilder();
-        config.filterInputsBy(new FilterBuilder().includePackage(packageName));
-        config.addUrls(ClasspathHelper.forPackage(packageName));
-        config.setScanners(new MethodAnnotationsScanner());
-        Reflections f = new Reflections(config);
-        Set<Method> resources = f.getMethodsAnnotatedWith(GetMapping.class);
-
-        for (Method method : resources) {
-            GetMapping annotation = method.getAnnotation(GetMapping.class);
-            if (path.equals(annotation.path())) {
-                return method;
+        if (requestMethod == RequestMethod.GET) {
+            Set<Method> resources = f.getMethodsAnnotatedWith(GetMapping.class);
+            for (Method method : resources) {
+                GetMapping annotation = method.getAnnotation(GetMapping.class);
+                if (annotation.path().equals(path)) {
+                    return method;
+                }
             }
         }
+        if (requestMethod == RequestMethod.POST) {
+            Set<Method> resources = f.getMethodsAnnotatedWith(PostMapping.class);
+            for (Method method : resources) {
+                PostMapping annotation = method.getAnnotation(PostMapping.class);
+                if (annotation.path().equals(path)) {
+                    return method;
+                }
+            }
+        }
+
         throw new NullRouteException();
     }
 }
