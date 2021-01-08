@@ -1,16 +1,64 @@
 package com.vison.webmvc.entity;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
 /**
  *
  * @author vison.cao <visonforcoding@gmail.com>
  */
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+/**
+ * User.java This is a model class represents a User entity
+ *
+ * @author Ramesh Fadatare
+ *
+ */
+@Entity
+@Table(name = "instructor")
 public class User {
 
-    private int id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    protected int id;
 
-    private String name;
+    @Column(name = "name")
+    protected String name;
 
-    private String email;
+    @Column(name = "email")
+    protected String email;
+
+    @Column(name = "country")
+    protected String country;
+
+    public User() {
+    }
+
+    public User(String name, String email, String country) {
+        super();
+        this.name = name;
+        this.email = email;
+        this.country = country;
+    }
+
+    public User(int id, String name, String email, String country) {
+        super();
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.country = country;
+    }
 
     public int getId() {
         return id;
@@ -36,4 +84,11 @@ public class User {
         this.email = email;
     }
 
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
 }

@@ -5,11 +5,16 @@ import com.vison.webmvc.framework.GetMapping;
 import com.vison.webmvc.Response;
 import com.vison.webmvc.config.Log;
 import com.vison.webmvc.dao.UserMapper;
+import com.vison.webmvc.framework.HibernateLoader;
 import com.vison.webmvc.framework.MybatisLoader;
 import com.vison.webmvc.framework.PostMapping;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.ibatis.session.SqlSession;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 //import org.hibernate.Session;
 //import org.hibernate.Transaction;
 
@@ -40,15 +45,25 @@ public class UserController {
     @PostMapping(path = "/user/add")
     public Response add(User user) {
         Log.info("request user", user);
-        try {
-            SqlSession session = MybatisLoader.getSqlSessionFactory().openSession();
-            UserMapper mapper = session.getMapper(UserMapper.class);
-            int id = mapper.insertUser(user);
-            session.commit();
-            Log.debug("返回", id);
-        } catch (Exception e) {
-            Log.error("保存失败", e);
-        }
-        return new Response(0, "保存", user);
+        Transaction transaction = null;
+        Session session = HibernateLoader.getSessionFactory().openSession(); // start a transaction
+        transaction = session.beginTransaction();
+        // save the student object
+        session.save(user);
+        // commit transaction
+        transaction.commit();
+        session.close();
+        return new Response(0, "保存");
+    }
+
+    @GetMapping(path = "/user/delete")
+    public Response delete(int id) {
+        Log.info("id", id);
+        EntityManagerFactory emf = HibernateLoader.emf;
+        EntityManager entityManager = emf.createEntityManager();
+        User user = entityManager.find(User.class, id);
+        Log.info("user", user);
+        entityManager.remove(user);
+        return new Response(0, "删除成功");
     }
 }

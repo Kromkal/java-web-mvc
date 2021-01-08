@@ -22,13 +22,16 @@ public class ContextServletListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         Log.info("应用程序启动...");
+        ViewEngine.load(sce.getServletContext());
         String packageName = "com.vison.webmvc.controller";
         ConfigurationBuilder config = new ConfigurationBuilder();
         config.filterInputsBy(new FilterBuilder().includePackage(packageName));
         config.addUrls(ClasspathHelper.forPackage(packageName));
         config.setScanners(new MethodAnnotationsScanner());
         App.f = new Reflections(config);
-        MybatisLoader.getSqlSessionFactory();
+//        MybatisLoader.getSqlSessionFactory();
+//        HibernateLoader.initEmf("itdoc");
+        HibernateLoader.getSessionFactory();
     }
 
     @Override

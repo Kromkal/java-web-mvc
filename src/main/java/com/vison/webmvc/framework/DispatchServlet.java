@@ -10,6 +10,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,16 +32,16 @@ import org.reflections.util.FilterBuilder;
  */
 @WebServlet(name = "DispatchServlet", urlPatterns = {"/"})
 public class DispatchServlet extends HttpServlet {
-
+    
     private Reflections f;
-
+    
     @Override
     public void init() throws ServletException {
-        ViewEngine.load(this.getServletContext());
+//        ViewEngine.load(this.getServletContext());
         f = App.f;
-
+        
     }
-
+    
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -50,7 +51,7 @@ public class DispatchServlet extends HttpServlet {
             Logger.getLogger(DispatchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-
+    
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -59,9 +60,9 @@ public class DispatchServlet extends HttpServlet {
         } catch (NullRouteException ex) {
             Logger.getLogger(DispatchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
-
+        
     }
-
+    
     private void process(HttpServletRequest req, HttpServletResponse resp, RequestMethod requestMethod)
             throws NullRouteException, IOException {
         resp.setContentType("text/html");
@@ -70,14 +71,20 @@ public class DispatchServlet extends HttpServlet {
         Object res = null;
         try {
             Method invokeMethod = this.getMaps(path, requestMethod);
+            Object[] arguments = new Object[0];
             switch (requestMethod) {
                 case GET:
-                    res = getDispatch(req, resp, invokeMethod);
+                    arguments = getDispatch(req, resp, invokeMethod);
                     break;
                 case POST:
-                    res = postDispatch(req, resp, invokeMethod);
+                    arguments = postDispatch(req, resp, invokeMethod);
                     break;
             }
+            Object obj;
+            obj = invokeMethod.getDeclaringClass().getDeclaredConstructor().newInstance();
+            res = invokeMethod.invoke(obj, arguments);
+        } catch (InvocationTargetException e) {
+            Log.error("发生错误", e.getCause());
         } catch (NullRouteException ex) {
             res = "404 Not Found";
         } catch (Exception e) {
@@ -87,10 +94,8 @@ public class DispatchServlet extends HttpServlet {
         resp.getWriter().write(responseBody);
         resp.getWriter().flush();
     }
-
-    private Object getDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod) {
-
-        Object res = null;
+    
+    private Object[] getDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod) {
         Parameter[] parameters = invokeMethod.getParameters();
         Object[] arguments = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
@@ -116,21 +121,11 @@ public class DispatchServlet extends HttpServlet {
                 throw new RuntimeException("Missing handler for type: " + parameterClass);
             }
         }
-        Object obj;
-        try {
-            obj = invokeMethod.getDeclaringClass().getDeclaredConstructor().newInstance();
-            res = invokeMethod.invoke(obj, arguments);
-        } catch (Exception e) {
-            InvocationTargetException targetEx = (InvocationTargetException) e;
-            Throwable trowEx = targetEx.getTargetException();
-            Log.error("方法invoke失败", trowEx);
-        }
-        return res;
+        return arguments;
     }
-
-    private Object postDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod)
+    
+    private Object[] postDispatch(HttpServletRequest request, HttpServletResponse response, Method invokeMethod)
             throws IOException {
-        Object res = null;
         Parameter[] parameters = invokeMethod.getParameters();
         Object[] arguments = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
@@ -151,17 +146,9 @@ public class DispatchServlet extends HttpServlet {
                 arguments[i] = gson.fromJson(reader, parameterClass);
             }
         }
-        Object obj;
-        try {
-            obj = invokeMethod.getDeclaringClass().getDeclaredConstructor().newInstance();
-            res = invokeMethod.invoke(obj, arguments);
-        } catch (Exception e) {
-            Log.error("方法invoke失败", e);
-        }
-        return res;
-
+        return arguments;
     }
-
+    
     private String getOrDefault(HttpServletRequest request, String name, String defaultValue) {
         String s = request.getParameter(name);
         return s == null ? defaultValue : s;
@@ -181,9 +168,9 @@ public class DispatchServlet extends HttpServlet {
         String jsonRes = gson.toJson(obj);
         return jsonRes;
     }
-
+    
     private Method getMaps(String path, RequestMethod requestMethod) throws NullRouteException {
-
+        
         if (requestMethod == RequestMethod.GET) {
             Set<Method> resources = f.getMethodsAnnotatedWith(GetMapping.class);
             for (Method method : resources) {
@@ -202,7 +189,7 @@ public class DispatchServlet extends HttpServlet {
                 }
             }
         }
-
+        
         throw new NullRouteException();
     }
 }

@@ -10,10 +10,10 @@ import org.apache.ibatis.datasource.unpooled.UnpooledDataSourceFactory;
  */
 public class DatabaseConfig {
 
-    static String driver = "com.mysql.jdbc.Driver";
-    static String url = "jdbc:mysql://localhost:3306/db_itdoc?useSSL=false";
-    static String username = "root";
-    static String password = "12345678";
+    public static String driver = "com.mysql.jdbc.Driver";
+    public static String url = "jdbc:mysql://localhost:3306/db_itdoc?useSSL=false";
+    public static String username = "root";
+    public static String password = "12345678";
 
     public static DataSource getDataSource() {
         Properties properties = new Properties();
